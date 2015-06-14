@@ -19,6 +19,9 @@
  */
 package org.broadleafcommerce.core.catalog.domain;
 
+import org.broadleafcommerce.common.i18n.service.DynamicTranslationProvider;
+import org.broadleafcommerce.common.copy.CreateResponse;
+import org.broadleafcommerce.common.copy.MultiTenantCopyContext;
 import org.broadleafcommerce.common.extensibility.jpa.copy.DirectCopyTransform;
 import org.broadleafcommerce.common.extensibility.jpa.copy.DirectCopyTransformMember;
 import org.broadleafcommerce.common.extensibility.jpa.copy.DirectCopyTransformTypes;
@@ -30,6 +33,7 @@ import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Index;
 import org.hibernate.annotations.Parameter;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -62,7 +66,8 @@ import javax.persistence.Table;
 @Table(name="BLC_SKU_ATTRIBUTE")
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE, region="blProducts")
 @DirectCopyTransform({
-        @DirectCopyTransformMember(templateTokens = DirectCopyTransformTypes.SANDBOX, skipOverlaps=true)
+        @DirectCopyTransformMember(templateTokens = DirectCopyTransformTypes.SANDBOX, skipOverlaps=true),
+        @DirectCopyTransformMember(templateTokens = DirectCopyTransformTypes.MULTITENANT_CATALOG, skipOverlaps=true)
 })
 public class SkuAttributeImpl implements SkuAttribute {
 
@@ -100,7 +105,7 @@ public class SkuAttributeImpl implements SkuAttribute {
     protected Boolean searchable = false;
   
     /** The sku. */
-    @ManyToOne(targetEntity = SkuImpl.class, optional=false)
+    @ManyToOne(targetEntity = SkuImpl.class, optional=false, cascade = CascadeType.REFRESH)
     @JoinColumn(name = "SKU_ID")
     @Index(name="SKUATTR_SKU_INDEX", columnNames={"SKU_ID"})
     protected Sku sku;
@@ -126,7 +131,7 @@ public class SkuAttributeImpl implements SkuAttribute {
      */
     @Override
     public String getValue() {
-        return value;
+        return DynamicTranslationProvider.getValue(this, "value", value);
     }
 
     /* (non-Javadoc)
@@ -162,7 +167,7 @@ public class SkuAttributeImpl implements SkuAttribute {
      */
     @Override
     public String getName() {
-        return name;
+        return DynamicTranslationProvider.getValue(this, "name", name);
     }
 
     /* (non-Javadoc)
@@ -239,4 +244,19 @@ public class SkuAttributeImpl implements SkuAttribute {
         return true;
     }
 
+    @Override
+    public <G extends SkuAttribute> CreateResponse<G> createOrRetrieveCopyInstance(MultiTenantCopyContext context) throws CloneNotSupportedException {
+        CreateResponse<G> createResponse = context.createOrRetrieveCopyInstance(this);
+        if (createResponse.isAlreadyPopulated()) {
+            return createResponse;
+        }
+        SkuAttribute cloned = createResponse.getClone();
+        cloned.setName(name);
+        if (sku != null) {
+            cloned.setSku(sku.createOrRetrieveCopyInstance(context).getClone());
+        }
+        cloned.setSearchable(getSearchable());
+        cloned.setValue(value);
+        return createResponse;
+    }
 }

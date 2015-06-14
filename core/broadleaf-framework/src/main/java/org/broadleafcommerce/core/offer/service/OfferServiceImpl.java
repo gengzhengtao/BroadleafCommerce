@@ -30,6 +30,7 @@ import org.broadleafcommerce.core.offer.domain.Adjustment;
 import org.broadleafcommerce.core.offer.domain.CustomerOffer;
 import org.broadleafcommerce.core.offer.domain.Offer;
 import org.broadleafcommerce.core.offer.domain.OfferCode;
+import org.broadleafcommerce.core.offer.domain.OrderItemPriceDetailAdjustment;
 import org.broadleafcommerce.core.offer.service.discount.domain.PromotableCandidateFulfillmentGroupOffer;
 import org.broadleafcommerce.core.offer.service.discount.domain.PromotableCandidateItemOffer;
 import org.broadleafcommerce.core.offer.service.discount.domain.PromotableCandidateOrderOffer;
@@ -52,12 +53,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Resource;
-import javax.validation.constraints.NotNull;
 
 /**
  * The Class OfferServiceImpl.
@@ -177,6 +179,24 @@ public class OfferServiceImpl implements OfferService {
         return offers;
     }
 
+    @Override
+    public List<OfferCode> buildOfferCodeListForCustomer(Customer customer) {
+        ArrayList<OfferCode> offerCodes = new ArrayList<OfferCode>();
+        if (extensionManager != null) {
+            extensionManager.getProxy().buildOfferCodeListForCustomer(customer, offerCodes);
+        }
+        if (!offerCodes.isEmpty()) {
+            Iterator<OfferCode> itr = offerCodes.iterator();
+            while (itr.hasNext()) {
+                OfferCode offerCode = itr.next();
+                if (!offerCode.isActive() || !verifyMaxCustomerUsageThreshold(customer, offerCode)) {
+                    itr.remove();
+                }
+            }
+        }
+        return offerCodes;
+    }
+
     /**
      * Private method used to retrieve all offers assigned to this customer.  These offers
      * have a DeliveryType of MANUAL and are programmatically assigned to the customer.
@@ -256,7 +276,7 @@ public class OfferServiceImpl implements OfferService {
      */
     @Override
     @Transactional("blTransactionManager")
-    public void applyOffersToOrder(List<Offer> offers, Order order) throws PricingException {
+    public Order applyAndSaveOffersToOrder(List<Offer> offers, Order order) throws PricingException {
         /*
         TODO rather than a threadlocal, we should update the "shouldPrice" boolean on the service API to
         use a richer object to describe the parameters of the pricing call. This object would include
@@ -265,7 +285,6 @@ public class OfferServiceImpl implements OfferService {
          */
         OfferContext offerContext = OfferContext.getOfferContext();
         if (offerContext == null || offerContext.executePromotionCalculation) {
-            order.updatePrices();
             PromotableOrder promotableOrder = promotableItemFactory.createPromotableOrder(order, false);
             List<Offer> filteredOffers = orderOfferProcessor.filterOffers(offers, order.getCustomer());
             if ((filteredOffers == null) || (filteredOffers.isEmpty())) {
@@ -287,16 +306,86 @@ public class OfferServiceImpl implements OfferService {
                 }
             }
             orderOfferProcessor.synchronizeAdjustmentsAndPrices(promotableOrder);
+            
+            verifyAdjustments(order, true);
+            
             order.setSubTotal(order.calculateSubTotal());
             order.finalizeItemPrices();
-
-            orderService.save(order, false);
+            
+            order = orderService.save(order, false);
+            
+            boolean madeChange = verifyAdjustments(order, false);
+            if (madeChange) {
+                order = orderService.save(order, false);
+            }
         }
+
+        return order;
+    }
+    
+    protected boolean verifyAdjustments(Order order, boolean beforeSave) {
+        boolean madeChange = false;
+        
+        if (order.getOrderItems() == null) {
+            return madeChange;
+        }
+
+        for (OrderItem oi : order.getOrderItems()) {
+            if (oi.getOrderItemPriceDetails() == null) {
+                continue;
+            }
+
+            for (OrderItemPriceDetail pd : oi.getOrderItemPriceDetails()) {
+                if (pd.getOrderItemPriceDetailAdjustments() == null) {
+                    continue;
+                }
+
+                Map<Long, OrderItemPriceDetailAdjustment> adjs = new HashMap<Long, OrderItemPriceDetailAdjustment>();
+                List<OrderItemPriceDetailAdjustment> adjustmentsToRemove = new ArrayList<OrderItemPriceDetailAdjustment>();
+                for (OrderItemPriceDetailAdjustment adj : pd.getOrderItemPriceDetailAdjustments()) {
+                    if (adjs.containsKey(adj.getOffer().getId())) {
+                        adjustmentsToRemove.add(adj);
+                        if (LOG.isDebugEnabled()) {
+                            StringBuilder sb = new StringBuilder("Detected collisions ")
+                                .append(beforeSave ? "before saving" : "after saving")
+                                .append(" with ids ")
+                                .append(adjs.get(adj.getOffer().getId()).getId())
+                                .append(" and ")
+                                .append(adj.getId());
+                            LOG.debug(sb.toString());
+                        }
+                    } else {
+                        adjs.put(adj.getOffer().getId(), adj);
+                    }
+                }
+                
+                for (OrderItemPriceDetailAdjustment adj : adjustmentsToRemove) {
+                    pd.getOrderItemPriceDetailAdjustments().remove(adj);
+                    madeChange = true;
+                }
+            }
+        }
+
+        return madeChange;
+     }
+
+    @Override
+    @Transactional("blTransactionManager")
+    @Deprecated
+    public void applyOffersToOrder(List<Offer> offers, Order order) throws PricingException {
+        applyAndSaveOffersToOrder(offers, order);
     }
 
     @Override
     @Transactional("blTransactionManager")
+    @Deprecated
     public void applyFulfillmentGroupOffersToOrder(List<Offer> offers, Order order) throws PricingException {
+        applyAndSaveFulfillmentGroupOffersToOrder(offers, order);
+    }
+
+    @Override
+    @Transactional("blTransactionManager")
+    public Order applyAndSaveFulfillmentGroupOffersToOrder(List<Offer> offers, Order order) throws PricingException {
         OfferContext offerContext = OfferContext.getOfferContext();
         if (offerContext == null || offerContext.executePromotionCalculation) {
             PromotableOrder promotableOrder =
@@ -318,8 +407,9 @@ public class OfferServiceImpl implements OfferService {
                 orderOfferProcessor.synchronizeAdjustmentsAndPrices(promotableOrder);
             }
 
-            orderService.save(order, false);
+            return orderService.save(order, false);
         }
+        return order;
     }
     
     @Override
@@ -334,7 +424,7 @@ public class OfferServiceImpl implements OfferService {
     }
     
     @Override
-    public boolean verifyMaxCustomerUsageThreshold(@NotNull Customer customer, OfferCode code) {
+    public boolean verifyMaxCustomerUsageThreshold(@Nonnull Customer customer, OfferCode code) {
         boolean underCodeMaxUses = true;
         if (code.isLimitedUse()) {
             Long currentCodeUses = offerAuditService.countOfferCodeUses(code.getId());

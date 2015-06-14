@@ -19,6 +19,7 @@
  */
 package org.broadleafcommerce.core.order.domain;
 
+import org.broadleafcommerce.common.copy.MultiTenantCloneable;
 import org.broadleafcommerce.common.money.Money;
 import org.broadleafcommerce.core.catalog.domain.Category;
 import org.broadleafcommerce.core.offer.domain.CandidateItemOffer;
@@ -345,7 +346,11 @@ public interface OrderItem extends Serializable, Cloneable {
      * Returns the unit price of this item.   If the parameter allowSalesPrice is true, will 
      * return the sale price if one exists.
      * 
+     * Note that retail and sale prices are initialized for an {@link OrderItem} during the first execution of 
+     * any method that depends on the sale or retail price including this one.          
+     * 
      * @param allowSalesPrice
+     * @see OrderItem#updateSaleAndRetailPrices()
      * @return
      */
     Money getPriceBeforeAdjustments(boolean allowSalesPrice);

@@ -24,6 +24,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.broadleafcommerce.common.exception.ServiceException;
+import org.broadleafcommerce.common.presentation.client.OperationType;
 import org.broadleafcommerce.common.util.BLCSystemProperty;
 import org.broadleafcommerce.openadmin.dto.Entity;
 import org.broadleafcommerce.openadmin.dto.FieldMetadata;
@@ -35,6 +36,7 @@ import org.broadleafcommerce.openadmin.server.security.domain.AdminUser;
 import org.broadleafcommerce.openadmin.server.security.remote.EntityOperationType;
 import org.broadleafcommerce.openadmin.server.security.remote.SecurityVerifier;
 import org.broadleafcommerce.openadmin.server.security.service.AdminSecurityService;
+import org.broadleafcommerce.openadmin.server.service.ValidationException;
 import org.broadleafcommerce.openadmin.server.service.handler.CustomPersistenceHandlerAdapter;
 import org.broadleafcommerce.openadmin.server.service.persistence.module.RecordHelper;
 import org.springframework.stereotype.Component;
@@ -71,7 +73,9 @@ public class AdminUserCustomPersistenceHandler extends CustomPersistenceHandlerA
     @Override
     public Boolean canHandleAdd(PersistencePackage persistencePackage) {
         try {
-            return persistencePackage.getCeilingEntityFullyQualifiedClassname() != null && AdminUser.class.isAssignableFrom(Class.forName(persistencePackage.getCeilingEntityFullyQualifiedClassname()));
+            return persistencePackage.getCeilingEntityFullyQualifiedClassname() != null
+                    && AdminUser.class.isAssignableFrom(Class.forName(persistencePackage.getCeilingEntityFullyQualifiedClassname()))
+                    && persistencePackage.getPersistencePerspectiveItems().isEmpty();
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -79,6 +83,11 @@ public class AdminUserCustomPersistenceHandler extends CustomPersistenceHandlerA
 
     @Override
     public Boolean canHandleUpdate(PersistencePackage persistencePackage) {
+        return canHandleAdd(persistencePackage);
+    }
+
+    @Override
+    public Boolean canHandleRemove(PersistencePackage persistencePackage) {
         return canHandleAdd(persistencePackage);
     }
 
@@ -110,6 +119,7 @@ public class AdminUserCustomPersistenceHandler extends CustomPersistenceHandlerA
         }
     }
 
+
     @Override
     public Entity update(PersistencePackage persistencePackage, DynamicEntityDao dynamicEntityDao, RecordHelper helper) throws ServiceException {       
         Entity entity = persistencePackage.getEntity();
@@ -118,7 +128,6 @@ public class AdminUserCustomPersistenceHandler extends CustomPersistenceHandlerA
             Map<String, FieldMetadata> adminProperties = helper.getSimpleMergedProperties(AdminUser.class.getName(), persistencePerspective);
             Object primaryKey = helper.getPrimaryKey(entity, adminProperties);
             AdminUser adminInstance = (AdminUser) dynamicEntityDao.retrieve(Class.forName(entity.getType()[0]), primaryKey);
-            dynamicEntityDao.detach(adminInstance);
             
             Entity errorEntity = validateLegalUsernameAndEmail(entity, adminInstance, false);
             if (errorEntity != null) {
@@ -138,10 +147,7 @@ public class AdminUserCustomPersistenceHandler extends CustomPersistenceHandlerA
                 }
             }
             
-            // The current user can update their data, but they cannot update other user's data.
-            if (! adminRemoteSecurityService.getPersistentAdminUser().getId().equals(adminInstance.getId())) {
-                adminRemoteSecurityService.securityCheck(persistencePackage, EntityOperationType.UPDATE);
-            }
+            validateUserUpdateSecurity(persistencePackage, adminInstance);
             
             adminInstance = adminSecurityService.saveAdminUser(adminInstance);
             Entity adminEntity = helper.getRecord(adminProperties, adminInstance, null, null);
@@ -150,6 +156,31 @@ public class AdminUserCustomPersistenceHandler extends CustomPersistenceHandlerA
 
         } catch (Exception e) {
             throw new ServiceException("Unable to update entity for " + entity.getType()[0], e);
+        }
+    }
+
+    @Override
+    public void remove(PersistencePackage persistencePackage, DynamicEntityDao dynamicEntityDao, RecordHelper helper)
+            throws ServiceException {
+        Entity entity = persistencePackage.getEntity();
+        String userLoginToRemove = entity.findProperty("login").getValue();
+
+        AdminUser persistentAdminUser = adminRemoteSecurityService.getPersistentAdminUser();
+
+        if (persistentAdminUser != null && persistentAdminUser.getLogin() != null) {
+            if (persistentAdminUser.getLogin().equals(userLoginToRemove)) {
+                throw new ValidationException(entity, "admin.cantDeleteCurrentUserError");
+            }
+        }
+
+        OperationType removeType = persistencePackage.getPersistencePerspective().getOperationTypes().getRemoveType();
+        helper.getCompatibleModule(removeType).remove(persistencePackage);
+    }
+
+    protected void validateUserUpdateSecurity(PersistencePackage persistencePackage, AdminUser changingUser) throws ServiceException {
+        // The current user can update their data, but they cannot update other user's data.
+        if (! adminRemoteSecurityService.getPersistentAdminUser().getId().equals(changingUser.getId())) {
+            adminRemoteSecurityService.securityCheck(persistencePackage, EntityOperationType.UPDATE);
         }
     }
     

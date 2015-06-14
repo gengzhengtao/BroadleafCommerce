@@ -23,6 +23,7 @@ import org.broadleafcommerce.common.currency.domain.BroadleafCurrency;
 import org.broadleafcommerce.common.money.Money;
 import org.broadleafcommerce.core.offer.domain.Offer;
 import org.broadleafcommerce.core.offer.domain.OfferItemCriteria;
+import org.broadleafcommerce.core.offer.domain.OfferTargetCriteriaXref;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ public class PromotableCandidateItemOfferImpl extends AbstractPromotionRounding 
     protected Offer offer;
     protected PromotableOrder promotableOrder;
     protected Money potentialSavings;
+    protected Money potentialSavingsQtyOne;
     protected int uses = 0;
     
     protected HashMap<OfferItemCriteria, List<PromotableOrderItem>> candidateQualifiersMap =
@@ -99,8 +101,21 @@ public class PromotableCandidateItemOfferImpl extends AbstractPromotionRounding 
     }
 
     @Override
+    public Money getPotentialSavingsQtyOne() {
+        if (potentialSavingsQtyOne == null) {
+            return new Money(promotableOrder.getOrderCurrency());
+        }
+        return potentialSavingsQtyOne;
+    }
+
+    @Override
+    public void setPotentialSavingsQtyOne(Money potentialSavingsQtyOne) {
+        this.potentialSavingsQtyOne = potentialSavingsQtyOne;
+    }
+
+    @Override
     public boolean hasQualifyingItemCriteria() {
-        return (offer.getQualifyingItemCriteria() != null && !offer.getQualifyingItemCriteria().isEmpty());
+        return (offer.getQualifyingItemCriteriaXref() != null && !offer.getQualifyingItemCriteriaXref().isEmpty());
     }
 
     /**
@@ -114,8 +129,8 @@ public class PromotableCandidateItemOfferImpl extends AbstractPromotionRounding 
         //iterate through the target criteria and find the least amount of max uses. This will be the overall
         //max usage, since the target criteria are grouped together in "and" style.
         int numberOfUsesForThisItemCriteria = maxMatchesFound;
-        for (OfferItemCriteria targetCriteria : getOffer().getTargetItemCriteria()) {
-            int temp = calculateMaxUsesForItemCriteria(targetCriteria, getOffer());
+        for (OfferTargetCriteriaXref targetXref : getOffer().getTargetItemCriteriaXref()) {
+            int temp = calculateMaxUsesForItemCriteria(targetXref.getOfferItemCriteria(), getOffer());
             numberOfUsesForThisItemCriteria = Math.min(numberOfUsesForThisItemCriteria, temp);
         }
 
@@ -188,7 +203,7 @@ public class PromotableCandidateItemOfferImpl extends AbstractPromotionRounding 
 
     @Override
     public boolean isLegacyOffer() {
-        return offer.getQualifyingItemCriteria().isEmpty() && offer.getTargetItemCriteria().isEmpty();
+        return offer.getQualifyingItemCriteriaXref().isEmpty() && offer.getTargetItemCriteriaXref().isEmpty();
     }
 
     @Override

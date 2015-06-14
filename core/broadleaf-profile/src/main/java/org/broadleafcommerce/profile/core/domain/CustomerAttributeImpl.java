@@ -19,6 +19,9 @@
  */
 package org.broadleafcommerce.profile.core.domain;
 
+import org.broadleafcommerce.common.i18n.service.DynamicTranslationProvider;
+import org.broadleafcommerce.common.copy.CreateResponse;
+import org.broadleafcommerce.common.copy.MultiTenantCopyContext;
 import org.broadleafcommerce.common.presentation.AdminPresentation;
 import org.broadleafcommerce.common.presentation.client.VisibilityEnum;
 import org.hibernate.annotations.Cache;
@@ -86,7 +89,7 @@ public class CustomerAttributeImpl implements CustomerAttribute {
 
     @Override
     public String getValue() {
-        return value;
+        return DynamicTranslationProvider.getValue(this, "value", value);
     }
 
     @Override
@@ -96,7 +99,7 @@ public class CustomerAttributeImpl implements CustomerAttribute {
 
     @Override
     public String getName() {
-        return name;
+        return DynamicTranslationProvider.getValue(this, "name", name);
     }
 
     @Override
@@ -170,4 +173,17 @@ public class CustomerAttributeImpl implements CustomerAttribute {
         return true;
     }
 
+    @Override
+    public <G extends CustomerAttribute> CreateResponse<G> createOrRetrieveCopyInstance(MultiTenantCopyContext context) throws CloneNotSupportedException {
+        CreateResponse<G> createResponse = context.createOrRetrieveCopyInstance(this);
+        if (createResponse.isAlreadyPopulated()) {
+            return createResponse;
+        }
+        CustomerAttribute cloned = createResponse.getClone();
+        // dont clone
+        cloned.setCustomer(customer);
+        cloned.setName(name);
+        cloned.setValue(value);
+        return createResponse;
+    }
 }

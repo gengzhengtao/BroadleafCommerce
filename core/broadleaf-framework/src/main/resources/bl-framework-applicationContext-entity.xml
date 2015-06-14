@@ -21,7 +21,7 @@
 
 <beans xmlns="http://www.springframework.org/schema/beans"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd">
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.1.xsd">
            
     <!-- Entity mappings - override for extensibility -->
     <bean id="org.broadleafcommerce.core.catalog.domain.Category" class="org.broadleafcommerce.core.catalog.domain.CategoryImpl" scope="prototype"/>
@@ -38,6 +38,7 @@
     <bean id="org.broadleafcommerce.core.order.fulfillment.domain.FulfillmentPriceBand" class="org.broadleafcommerce.core.order.fulfillment.domain.FulfillmentPriceBandImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.order.fulfillment.domain.FulfillmentWeightBand" class="org.broadleafcommerce.core.order.fulfillment.domain.FulfillmentWeightBandImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.order.domain.Order" class="org.broadleafcommerce.core.order.domain.OrderImpl" scope="prototype"/>
+    <bean id="org.broadleafcommerce.core.order.domain.OrderLock" class="org.broadleafcommerce.core.order.domain.OrderLockImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.order.domain.OrderMultishipOption" class="org.broadleafcommerce.core.order.domain.OrderMultishipOptionImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.order.domain.DynamicPriceDiscreteOrderItem" class="org.broadleafcommerce.core.order.domain.DynamicPriceDiscreteOrderItemImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.order.domain.OrderItem" class="org.broadleafcommerce.core.order.domain.OrderItemImpl" scope="prototype"/>
@@ -50,11 +51,13 @@
     <bean id="org.broadleafcommerce.core.payment.domain.PaymentTransaction" class="org.broadleafcommerce.core.payment.domain.PaymentTransactionImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.payment.domain.PaymentLog" class="org.broadleafcommerce.core.payment.domain.PaymentLogImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.catalog.domain.Product" class="org.broadleafcommerce.core.catalog.domain.ProductImpl" scope="prototype" />
+    <bean id="org.broadleafcommerce.core.catalog.domain.ProductAttribute" class="org.broadleafcommerce.core.catalog.domain.ProductAttributeImpl" scope="prototype" />
     <bean id="org.broadleafcommerce.core.catalog.domain.ProductBundle" class="org.broadleafcommerce.core.catalog.domain.ProductBundleImpl" scope="prototype" />
     <bean id="org.broadleafcommerce.core.catalog.domain.ProductOption" class="org.broadleafcommerce.core.catalog.domain.ProductOptionImpl" scope="prototype" />
     <bean id="org.broadleafcommerce.core.catalog.domain.ProductOptionValue" class="org.broadleafcommerce.core.catalog.domain.ProductOptionValueImpl" scope="prototype" />
     <bean id="org.broadleafcommerce.core.catalog.domain.SkuBundleItem" class="org.broadleafcommerce.core.catalog.domain.SkuBundleItemImpl" scope="prototype" />
     <bean id="org.broadleafcommerce.core.catalog.domain.Sku" class="org.broadleafcommerce.core.catalog.domain.SkuImpl" scope="prototype"/>
+    <bean id="org.broadleafcommerce.core.catalog.domain.SkuAttribute" class="org.broadleafcommerce.core.catalog.domain.SkuAttributeImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.catalog.domain.SkuFee" class="org.broadleafcommerce.core.catalog.domain.SkuFeeImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.payment.domain.secure.BankAccountPayment" class="org.broadleafcommerce.core.payment.domain.secure.BankAccountPaymentImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.payment.domain.secure.CreditCardPayment" class="org.broadleafcommerce.core.payment.domain.secure.CreditCardPaymentInfoImpl" scope="prototype"/>
@@ -89,5 +92,6 @@
     <bean id="org.broadleafcommerce.core.offer.domain.OfferItemCriteria" class="org.broadleafcommerce.core.offer.domain.OfferItemCriteriaImpl" scope="prototype" />
     <bean id="org.broadleafcommerce.core.offer.domain.OfferAudit" class="org.broadleafcommerce.core.offer.domain.OfferAuditImpl" scope="prototype"/>
     <bean id="org.broadleafcommerce.core.catalog.domain.CategorySiteMapGeneratorConfiguration" class="org.broadleafcommerce.core.catalog.domain.CategorySiteMapGeneratorConfigurationImpl" scope="prototype" />
+    <bean id="org.broadleafcommerce.common.currency.domain.BroadleafCurrency" class="org.broadleafcommerce.common.currency.domain.BroadleafCurrencyImpl"/>
 
 </beans>

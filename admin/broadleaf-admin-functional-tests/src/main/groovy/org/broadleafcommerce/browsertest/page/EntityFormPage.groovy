@@ -55,6 +55,8 @@ class EntityFormPage extends AdminPage {
         tabs { container.find('.tabs-container dd') }
         form { container.find('form.entity-form') }
         submitButton(to: EntityFormPage) { container.find('button.submit-button') }
+        deleteButton(to: TopLevelEntity) { container.find('button.delete-button') }
+        closeButton(to: EntityFormPage) { container.find('button.close') }
         grids(required: false) { index ->
             moduleList ActionableListGridModule, container.find('.listgrid-container'), index
         }
@@ -95,6 +97,8 @@ class EntityFormPage extends AdminPage {
         def field = form.find(convertFieldName(fieldName))
         if (!field.displayed && makeVisible) {
             clickTab(field)
+            def element = field.getElement(0)
+            js.exec (element, 'arguments[0].scrollIntoView();')
         }
         return field
     }

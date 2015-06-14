@@ -23,6 +23,7 @@ import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.broadleafcommerce.common.persistence.EntityConfiguration;
+import org.broadleafcommerce.common.util.HibernateUtils;
 import org.broadleafcommerce.common.util.dao.DynamicDaoHelper;
 import org.broadleafcommerce.common.util.dao.DynamicDaoHelperImpl;
 import org.broadleafcommerce.openadmin.server.service.persistence.PersistenceManager;
@@ -81,42 +82,24 @@ public class FieldManager {
 
         for (int j=0;j<tokens.length;j++) {
             String propertyName = tokens[j];
-            field = getSingleField(clazz, propertyName);
+            Class<?>[] myEntities = persistenceManager.getUpDownInheritance(clazz);
+            Class<?> myClass;
+            if (ArrayUtils.isEmpty(myEntities)) {
+                myClass = clazz;
+            } else {
+                myClass = getClassForField(persistenceManager, propertyName, null, myEntities);
+            }
+            if (myClass == null) {
+                LOG.debug(String.format("Unable to find the field (%s) anywhere in the inheritance hierarchy for (%s)", propertyName, clazz.getName()));
+                return null;
+            }
+            field = getSingleField(myClass, propertyName);
             if (field != null && j < tokens.length - 1) {
-                Class<?>[] entities = persistenceManager.getUpDownInheritance(field.getType());
-                if (!ArrayUtils.isEmpty(entities)) {
-                    String peekAheadToken = tokens[j+1];
-                    List<Class<?>> matchedClasses = new ArrayList<Class<?>>();
-                    for (Class<?> entity : entities) {
-                        Field peekAheadField = null;
-                        try {
-                            peekAheadField = entity.getDeclaredField(peekAheadToken);
-                        } catch (NoSuchFieldException nsf) {
-                            //do nothing
-                        }
-                        if (peekAheadField != null) {
-                            matchedClasses.add(entity);
-                        }
-                    }
-                    if (matchedClasses.size() > 1) {
-                        LOG.warn("Found the property (" + peekAheadToken + ") in more than one class of an inheritance hierarchy. This may lead to unwanted behavior, as the system does not know which class was intended. Do not use the same property name in different levels of the inheritance hierarchy. Defaulting to the first class found (" + matchedClasses.get(0).getName() + ")");
-                    }
-                    if (matchedClasses.isEmpty()) {
-                        //probably an artificial field (i.e. passwordConfirm on AdminUserImpl)
+                Class<?>[] fieldEntities = persistenceManager.getUpDownInheritance(field.getType());
+                if (!ArrayUtils.isEmpty(fieldEntities)) {
+                    clazz = getClassForField(persistenceManager, tokens[j + 1], field, fieldEntities);
+                    if (clazz == null) {
                         return null;
-                    }
-                    if (getSingleField(matchedClasses.get(0), peekAheadToken) != null) {
-                        clazz = matchedClasses.get(0);
-                        Class<?>[] entities2 = persistenceManager.getUpDownInheritance(clazz);
-                        if (!ArrayUtils.isEmpty(entities2) && matchedClasses.size() == 1 && clazz.isInterface()) {
-                            try {
-                                clazz = entityConfiguration.lookupEntityClass(field.getType().getName());
-                            } catch (Exception e) {
-                                // Do nothing - we'll use the matchedClass
-                            }
-                        }
-                    } else {
-                        clazz = field.getType();
                     }
                 } else {
                     //may be an embedded class - try the class directly
@@ -126,18 +109,58 @@ public class FieldManager {
                 break;
             }
         }
-        
+
         if (field != null) {
             field.setAccessible(true);
         }
         return field;
     }
-    
+    protected Class<?> getClassForField(PersistenceManager persistenceManager, String token, Field field, Class<?>[] entities) {
+        Class<?> clazz;
+        List<Class<?>> matchedClasses = new ArrayList<Class<?>>();
+        for (Class<?> entity : entities) {
+            Field peekAheadField = null;
+            try {
+                peekAheadField = entity.getDeclaredField(token);
+            } catch (NoSuchFieldException nsf) {
+                //do nothing
+            }
+            if (peekAheadField != null) {
+                matchedClasses.add(entity);
+            }
+        }
+        if (matchedClasses.size() > 1) {
+            LOG.warn("Found the property (" + token + ") in more than one class of an inheritance hierarchy. " +
+                    "This may lead to unwanted behavior, as the system does not know which class was intended. Do not " +
+                    "use the same property name in different levels of the inheritance hierarchy. Defaulting to the " +
+                    "first class found (" + matchedClasses.get(0).getName() + ")");
+        }
+        if (matchedClasses.isEmpty()) {
+            //probably an artificial field (i.e. passwordConfirm on AdminUserImpl)
+            return null;
+        }
+        Class<?> myClass = field != null?field.getType():entities[0];
+        if (getSingleField(matchedClasses.get(0), token) != null) {
+            clazz = matchedClasses.get(0);
+            Class<?>[] entities2 = persistenceManager.getUpDownInheritance(clazz);
+            if (!ArrayUtils.isEmpty(entities2) && matchedClasses.size() == 1 && clazz.isInterface()) {
+                try {
+                    clazz = entityConfiguration.lookupEntityClass(myClass.getName());
+                } catch (Exception e) {
+                    // Do nothing - we'll use the matchedClass
+                }
+            }
+        } else {
+            clazz = myClass;
+        }
+        return clazz;
+    }
+
     public Object getFieldValue(Object bean, String fieldName) throws IllegalAccessException, FieldNotAvailableException {
         StringTokenizer tokens = new StringTokenizer(fieldName, ".");
         Class<?> componentClass = bean.getClass();
         Field field;
-        Object value = bean;
+        Object value = HibernateUtils.deproxy(bean);
 
         while (tokens.hasMoreTokens()) {
             String fieldNamePart = tokens.nextToken();
@@ -171,6 +194,7 @@ public class FieldManager {
         StringTokenizer tokens = new StringTokenizer(fieldName, ".");
         Class<?> componentClass = bean.getClass();
         Field field;
+        bean = HibernateUtils.deproxy(bean);
         Object value = bean;
         
         int count = tokens.countTokens();
@@ -224,14 +248,16 @@ public class FieldManager {
                             field.set(value, newEntity);
                             componentClass = newEntity.getClass();
                             value = newEntity;
-                            LOG.info("Unable to find a reference to ("+field.getType().getName()+") in the EntityConfigurationManager. Using the most extended form of this class identified as ("+entities[0].getName()+")");
+                            LOG.info("Unable to find a reference to ("+field.getType().getName()+") in the EntityConfigurationManager. " +
+                                    "Using the most extended form of this class identified as ("+entities[0].getName()+")");
                         } else {
                             //Just use the field type
                             Object newEntity = field.getType().newInstance();
                             field.set(value, newEntity);
                             componentClass = newEntity.getClass();
                             value = newEntity;
-                            LOG.info("Unable to find a reference to ("+field.getType().getName()+") in the EntityConfigurationManager. Using the type of this class.");
+                            LOG.info("Unable to find a reference to ("+field.getType().getName()+") in the EntityConfigurationManager. " +
+                                    "Using the type of this class.");
                         }
                     }
                 }
@@ -242,6 +268,30 @@ public class FieldManager {
         
         return value;
 
+    }
+
+    public Class<?> getFieldType(Field field) {
+        //consult the entity configuration manager to see if there is a user
+        //configured entity for this class
+        Class<?> response;
+        try {
+            response = entityConfiguration.lookupEntityClass(field.getType().getName());
+        } catch (Exception e) {
+            //Use the most extended type based on the field type
+            PersistenceManager persistenceManager = getPersistenceManager();
+            Class<?>[] entities = persistenceManager.getUpDownInheritance(field.getType());
+            if (!ArrayUtils.isEmpty(entities)) {
+                response = entities[entities.length-1];
+                LOG.info("Unable to find a reference to ("+field.getType().getName()+") in the EntityConfigurationManager. " +
+                        "Using the most extended form of this class identified as ("+entities[0].getName()+")");
+            } else {
+                //Just use the field type
+                response = field.getType();
+                LOG.info("Unable to find a reference to ("+field.getType().getName()+") in the EntityConfigurationManager. " +
+                        "Using the type of this class.");
+            }
+        }
+        return response;
     }
     
     public Map<String, Serializable> persistMiddleEntities() throws InstantiationException, IllegalAccessException {
@@ -287,6 +337,7 @@ public class FieldManager {
             this.containingPropertyName = containingPropertyName;
         }
 
+        @Override
         public int compareTo(SortableValue o) {
             return pos.compareTo(o.pos) * -1;
         }

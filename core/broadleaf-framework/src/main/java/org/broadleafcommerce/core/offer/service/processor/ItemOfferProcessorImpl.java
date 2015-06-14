@@ -28,6 +28,7 @@ import org.broadleafcommerce.core.offer.domain.OfferItemCriteria;
 import org.broadleafcommerce.core.offer.service.OfferServiceExtensionManager;
 import org.broadleafcommerce.core.offer.service.discount.CandidatePromotionItems;
 import org.broadleafcommerce.core.offer.service.discount.ItemOfferComparator;
+import org.broadleafcommerce.core.offer.service.discount.ItemOfferQtyOneComparator;
 import org.broadleafcommerce.core.offer.service.discount.OrderOfferComparator;
 import org.broadleafcommerce.core.offer.service.discount.PromotionDiscount;
 import org.broadleafcommerce.core.offer.service.discount.domain.PromotableCandidateItemOffer;
@@ -65,7 +66,8 @@ public class ItemOfferProcessorImpl extends OrderOfferProcessorImpl implements I
      */
     @Override
     public void filterItemLevelOffer(PromotableOrder order, List<PromotableCandidateItemOffer> qualifiedItemOffers, Offer offer) {
-        boolean isNewFormat = !CollectionUtils.isEmpty(offer.getQualifyingItemCriteria()) || !CollectionUtils.isEmpty(offer.getTargetItemCriteria());
+        boolean isNewFormat = CollectionUtils.isNotEmpty(offer.getQualifyingItemCriteriaXref()) ||
+                CollectionUtils.isNotEmpty(offer.getTargetItemCriteriaXref());
         boolean itemLevelQualification = false;
         boolean offerCreated = false;
 
@@ -446,8 +448,8 @@ public class ItemOfferProcessorImpl extends OrderOfferProcessorImpl implements I
                 Money potentialSavings = new Money(order.getOrderCurrency());
                 if (itemOffer.isLegacyOffer()) {
                     for (PromotableOrderItem item : itemOffer.getLegacyCandidateTargets()) {
-                        potentialSavings = potentialSavings.add(
-                                itemOffer.calculateSavingsForOrderItem(item, item.getQuantity()));
+                        Money savings = itemOffer.calculateSavingsForOrderItem(item, item.getQuantity());
+                        potentialSavings = potentialSavings.add(savings);
                     }
                 } else {
                     markQualifiersAndTargets(order, itemOffer);
@@ -463,6 +465,11 @@ public class ItemOfferProcessorImpl extends OrderOfferProcessorImpl implements I
                     }
                 }
                 itemOffer.setPotentialSavings(potentialSavings);
+                if (itemOffer.getUses() == 0) {
+                    itemOffer.setPotentialSavingsQtyOne(potentialSavings);
+                } else {
+                    itemOffer.setPotentialSavingsQtyOne(potentialSavings.divide(itemOffer.getUses()));
+                }
             }
         }
     }
@@ -522,6 +529,19 @@ public class ItemOfferProcessorImpl extends OrderOfferProcessorImpl implements I
         List<List<PromotableCandidateItemOffer>> listOfOfferLists = new ArrayList<List<PromotableCandidateItemOffer>>();
         // add the default list
         listOfOfferLists.add(offers);
+        
+        if (offers.size() > 1) {
+            List<PromotableCandidateItemOffer> qtyOneOffers = new ArrayList<PromotableCandidateItemOffer>(offers);
+            Collections.sort(qtyOneOffers, ItemOfferQtyOneComparator.INSTANCE);
+            
+            // We only want to add this additional list when the qty of one list is not identical to the original one
+            for (int i = 0; i < qtyOneOffers.size(); i++) {
+                if (qtyOneOffers.get(i) != offers.get(i)) {
+                    listOfOfferLists.add(qtyOneOffers);
+                    break;
+                }
+            }
+        }
 
         if (offerListStartsWithNonCombinable(offers)) {
             List<PromotableCandidateItemOffer> listWithoutTotalitarianOrNonCombinables =
@@ -558,6 +578,10 @@ public class ItemOfferProcessorImpl extends OrderOfferProcessorImpl implements I
         Money lowestSubtotal = null;
         if (permutations.size() > 1) {
             for (List<PromotableCandidateItemOffer> offerList : permutations) {
+                for (PromotableCandidateItemOffer offer : offerList) {
+                    offer.resetUses();
+                }
+                
                 applyAllItemOffers(offerList, order);
                 chooseSaleOrRetailAdjustments(order);
                 Money testSubtotal = order.calculateSubtotalWithAdjustments();
@@ -575,6 +599,11 @@ public class ItemOfferProcessorImpl extends OrderOfferProcessorImpl implements I
         } else {
             bestOfferList = permutations.get(0);
         }
+
+        for (PromotableCandidateItemOffer offer : bestOfferList) {
+            offer.resetUses();
+        }
+
         applyAllItemOffers(bestOfferList, order);
     }
 

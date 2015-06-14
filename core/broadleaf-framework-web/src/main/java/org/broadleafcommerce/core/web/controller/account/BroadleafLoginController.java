@@ -22,12 +22,14 @@ package org.broadleafcommerce.core.web.controller.account;
 import org.apache.commons.lang.StringUtils;
 import org.broadleafcommerce.common.exception.ServiceException;
 import org.broadleafcommerce.common.service.GenericResponse;
+import org.broadleafcommerce.common.util.BLCRequestUtils;
 import org.broadleafcommerce.common.web.controller.BroadleafAbstractController;
 import org.broadleafcommerce.profile.core.service.CustomerService;
 import org.broadleafcommerce.profile.core.service.validator.ResetPasswordValidator;
 import org.broadleafcommerce.profile.web.core.service.login.LoginService;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.context.request.ServletWebRequest;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -107,7 +109,9 @@ public class BroadleafLoginController extends BroadleafAbstractController {
              model.addAttribute("errorCode", errorCode);             
              return getForgotPasswordView();
         } else {
-            request.getSession(true).setAttribute("forgot_password_username", username);
+            if (BLCRequestUtils.isOKtoUseSession(new ServletWebRequest(request))) {
+                request.getSession(true).setAttribute("forgot_password_username", username);
+            }
             return getForgotPasswordSuccessView();
         }
     }   
@@ -158,15 +162,8 @@ public class BroadleafLoginController extends BroadleafAbstractController {
     public String resetPassword(HttpServletRequest request, HttpServletResponse response, Model model) {
         ResetPasswordForm resetPasswordForm = initResetPasswordForm(request);
         model.addAttribute("resetPasswordForm", resetPasswordForm);
-        GenericResponse errorResponse = customerService.checkPasswordResetToken(resetPasswordForm.getToken());
-        if (errorResponse.getHasErrors()) {
-            String errorCode = errorResponse.getErrorCodesList().get(0);
-            request.setAttribute("errorCode", errorCode);
-            return getResetPasswordErrorView();
-        } else {
-            return getResetPasswordView();
-        }
-    }   
+        return getResetPasswordView();
+    }
     
     /**
      * Processes the reset password token and allows the user to change their password.  
@@ -182,13 +179,12 @@ public class BroadleafLoginController extends BroadleafAbstractController {
      * @throws ServiceException 
      */
     public String processResetPassword(ResetPasswordForm resetPasswordForm, HttpServletRequest request, HttpServletResponse response, Model model, BindingResult errors) throws ServiceException {
-        GenericResponse errorResponse = new GenericResponse();
         resetPasswordValidator.validate(resetPasswordForm.getUsername(), resetPasswordForm.getPassword(), resetPasswordForm.getPasswordConfirm(), errors);
-        if (errorResponse.getHasErrors()) {
+        if (errors.hasErrors()) {
             return getResetPasswordView();
         }
         
-        errorResponse = customerService.resetPasswordUsingToken(
+        GenericResponse errorResponse = customerService.resetPasswordUsingToken(
                 resetPasswordForm.getUsername(), 
                 resetPasswordForm.getToken(), 
                 resetPasswordForm.getPassword(),
@@ -228,7 +224,10 @@ public class BroadleafLoginController extends BroadleafAbstractController {
      */
     public ResetPasswordForm initResetPasswordForm(HttpServletRequest request) {
         ResetPasswordForm resetPasswordForm = new ResetPasswordForm();
-        String username = (String) request.getSession(true).getAttribute("forgot_password_username");
+        String username = null;
+        if (BLCRequestUtils.isOKtoUseSession(new ServletWebRequest(request))) {
+            username = (String) request.getSession(true).getAttribute("forgot_password_username");
+        }
         String token = request.getParameter("token");
         resetPasswordForm.setToken(token);
         resetPasswordForm.setUsername(username);
