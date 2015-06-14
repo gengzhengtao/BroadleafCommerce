@@ -182,9 +182,9 @@ public abstract class AdminAbstractController extends BroadleafAbstractControlle
      * available, then this should be null (or empty)
      * 
      * @param mainMetadata class metadata for the root entity that this <b>collectionProperty</b> relates to
-     * @param id foreign key from the root entity for <b>collectionProperty</b>
+     * @param entity foreign key from the root entity for <b>collectionProperty</b>
      * @param collectionProperty property that this collection should be based on from the root entity
-     * @param form the criteria form model attribute
+     * @param requestParams the criteria form model attribute
      * @param sectionKey the current main section key
      * @return the list grid
      * @throws ServiceException
@@ -211,9 +211,9 @@ public abstract class AdminAbstractController extends BroadleafAbstractControlle
      * available, then this should be null (or empty)
      *
      * @param mainMetadata class metadata for the root entity that this <b>collectionProperty</b> relates to
-     * @param id foreign key from the root entity for <b>collectionProperty</b>
+     * @param entity foreign key from the root entity for <b>collectionProperty</b>
      * @param collectionProperty property that this collection should be based on from the root entity
-     * @param form the criteria form model attribute
+     * @param requestParams the criteria form model attribute
      * @param sectionKey the current main section key
      * @return the list grid
      * @throws ServiceException
@@ -290,7 +290,7 @@ public abstract class AdminAbstractController extends BroadleafAbstractControlle
      * 
      * @param info
      * @param entityId
-     * @param dynamicForm optional dynamic form that already has values to fill out
+     * @param dynamicFormOverride optional dynamic form that already has values to fill out
      * @return the entity form
      * @throws ServiceException
      */
@@ -674,7 +674,7 @@ public abstract class AdminAbstractController extends BroadleafAbstractControlle
      * and sort criteria attached.
      * 
      * @param sectionClassName
-     * @param filterAndSortCriteria
+     * @param requestParams
      * @return the PersistencePacakageRequest
      */
     protected PersistencePackageRequest getSectionPersistencePackageRequest(String sectionClassName, 
