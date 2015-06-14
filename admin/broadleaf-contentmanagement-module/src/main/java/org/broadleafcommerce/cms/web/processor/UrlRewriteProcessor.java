@@ -50,9 +50,13 @@ public class UrlRewriteProcessor extends AbstractAttributeModifierAttrProcessor 
      * Sets the name of this processor to be used in Thymeleaf template
      */
     public UrlRewriteProcessor() {
-        super("src");
+        this("src");
     }
     
+    protected UrlRewriteProcessor(final String attributeName) {
+        super(attributeName);
+    }
+
     @Override
     public int getPrecedence() {
         return 1000;
@@ -71,13 +75,23 @@ public class UrlRewriteProcessor extends AbstractAttributeModifierAttrProcessor 
         Map<String, String> attrs = new HashMap<String, String>();
         HttpServletRequest request = BroadleafRequestContext.getBroadleafRequestContext().getRequest();
         
-        boolean secureRequest = isRequestSecure(request);
+        boolean secureRequest = true;
+        if (request != null) {
+            secureRequest = isRequestSecure(request);
+        }
         
+        String elementValue = element.getAttributeValue(attributeName);
+
+        if (elementValue.startsWith("/")) {
+            elementValue = "@{ " + elementValue + " }";
+        }
         Expression expression = (Expression) StandardExpressions.getExpressionParser(arguments.getConfiguration())
-                .parseExpression(arguments.getConfiguration(), arguments, element.getAttributeValue(attributeName));
+                .parseExpression(arguments.getConfiguration(), arguments, elementValue);
         String assetPath = (String) expression.execute(arguments.getConfiguration(), arguments);
         
-        assetPath = staticAssetPathService.convertAssetPath(assetPath, request.getContextPath(), secureRequest);
+        // We are forcing an evaluation of @{} from Thymeleaf above which will automatically add a contextPath, no need to
+        // add it twice
+        assetPath = staticAssetPathService.convertAssetPath(assetPath, null, secureRequest);
         
         attrs.put("src", assetPath);
         

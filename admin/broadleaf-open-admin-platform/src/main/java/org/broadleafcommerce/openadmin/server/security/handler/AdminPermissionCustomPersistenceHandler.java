@@ -82,7 +82,7 @@ public class AdminPermissionCustomPersistenceHandler extends CustomPersistenceHa
             Map<String, FieldMetadata> adminProperties = helper.getSimpleMergedProperties(AdminPermission.class.getName(), persistencePerspective);
             adminInstance = (AdminPermission) helper.createPopulatedInstance(adminInstance, entity, adminProperties, false);
 
-            adminInstance = (AdminPermission) dynamicEntityDao.merge(adminInstance);
+            adminInstance = dynamicEntityDao.merge(adminInstance);
 
             Entity adminEntity = helper.getRecord(adminProperties, adminInstance, null, null);
 
@@ -121,7 +121,7 @@ public class AdminPermissionCustomPersistenceHandler extends CustomPersistenceHa
             AdminPermission adminInstance = (AdminPermission) dynamicEntityDao.retrieve(Class.forName(entity.getType()[0]), primaryKey);
             adminInstance = (AdminPermission) helper.createPopulatedInstance(adminInstance, entity, adminProperties, false);
 
-            adminInstance = (AdminPermission) dynamicEntityDao.merge(adminInstance);
+            adminInstance = dynamicEntityDao.merge(adminInstance);
 
             Entity adminEntity = helper.getRecord(adminProperties, adminInstance, null, null);
 
@@ -133,9 +133,7 @@ public class AdminPermissionCustomPersistenceHandler extends CustomPersistenceHa
 
     @Override
     public DynamicResultSet fetch(PersistencePackage persistencePackage, CriteriaTransferObject cto, DynamicEntityDao dynamicEntityDao, RecordHelper helper) throws ServiceException {
-        if (ArrayUtils.contains(persistencePackage.getCustomCriteria(), "includeFriendlyOnly")) {
-            addFriendlyRestriction(cto);
-        }
+        addFriendlyRestriction(cto);
         addDefaultSort(cto);
 
         PersistenceModule myModule = helper.getCompatibleModule(persistencePackage.getPersistencePerspective().getOperationTypes().getFetchType());
@@ -157,9 +155,12 @@ public class AdminPermissionCustomPersistenceHandler extends CustomPersistenceHa
             }
         }
         if (!userSort) {
-            FilterAndSortCriteria sortFasc = new FilterAndSortCriteria("description");
-            sortFasc.setSortAscending(true);
-            cto.add(sortFasc);
+            FilterAndSortCriteria descriptionSort = cto.getCriteriaMap().get("description");
+            if (descriptionSort == null) {
+                descriptionSort = new FilterAndSortCriteria("description");
+                cto.add(descriptionSort);
+            }
+            descriptionSort.setSortAscending(true);
         }
     }
     

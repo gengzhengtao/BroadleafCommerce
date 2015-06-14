@@ -47,6 +47,17 @@ public class TranslatedEntity implements Serializable, BroadleafEnumerationType 
     public static final TranslatedEntity SEARCH_FACET = new TranslatedEntity("org.broadleafcommerce.core.search.domain.SearchFacet", "SearchFacet");
     public static final TranslatedEntity FULFILLMENT_OPTION = new TranslatedEntity("org.broadleafcommerce.core.order.domain.FulfillmentOption", "FulfillmentOption");
     public static final TranslatedEntity OFFER = new TranslatedEntity("org.broadleafcommerce.core.offer.domain.Offer", "Offer");
+    public static final TranslatedEntity CHALLENGE_QUESTION = new TranslatedEntity("org.broadleafcommerce.profile.core.domain.ChallengeQuestion", "ChallengeQuestion");
+    public static final TranslatedEntity SKU_ATTRIBUTE = new TranslatedEntity("org.broadleafcommerce.core.catalog.domain.SkuAttribute", "SkuAttribute");
+    public static final TranslatedEntity PRODUCT_ATTRIBUTE = new TranslatedEntity("org.broadleafcommerce.core.catalog.domain.ProductAttribute", "ProductAttribute");
+    public static final TranslatedEntity CATEGORY_ATTRIBUTE = new TranslatedEntity("org.broadleafcommerce.core.catalog.domain.CategoryAttribute", "CategoryAttribute");
+    public static final TranslatedEntity CUSTOMER_ATTRIBUTE = new TranslatedEntity("org.broadleafcommerce.profile.core.domain.CustomerAttribute", "CustomerAttribute");
+    public static final TranslatedEntity PAGE = new TranslatedEntity("org.broadleafcommerce.cms.page.domain.Page", "Page");
+    public static final TranslatedEntity PAGE_TEMPLATE = new TranslatedEntity("org.broadleafcommerce.cms.page.domain.PageTemplate", "PageTemplate");
+    public static final TranslatedEntity STRUCTURED_CONTENT_TYPE = new TranslatedEntity("org.broadleafcommerce.cms.structure.domain.StructuredContentType", "StructuredContentType");
+    public static final TranslatedEntity COUNTRY = new TranslatedEntity("org.broadleafcommerce.profile.core.domain.Country", "Country");
+    public static final TranslatedEntity COUNTRY_SUBDIVISION = new TranslatedEntity("org.broadleafcommerce.profile.core.domain.CountrySubdivision", "CountrySubdivision");
+    public static final TranslatedEntity COUNTRY_SUBDIVISION_CATEGORY = new TranslatedEntity("org.broadleafcommerce.profile.core.domain.CountrySubdivisionCategory", "CountrySubdivisionCategory");
 
     public static TranslatedEntity getInstance(final String type) {
         return TYPES.get(type);
@@ -74,10 +85,12 @@ public class TranslatedEntity implements Serializable, BroadleafEnumerationType 
         setType(type);
     }
 
+    @Override
     public String getType() {
         return type;
     }
 
+    @Override
     public String getFriendlyType() {
         return friendlyType;
     }

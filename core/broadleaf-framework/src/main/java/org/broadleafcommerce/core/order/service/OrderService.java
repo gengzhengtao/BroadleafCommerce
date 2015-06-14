@@ -22,7 +22,9 @@ package org.broadleafcommerce.core.order.service;
 import org.apache.commons.logging.Log;
 import org.broadleafcommerce.common.payment.PaymentType;
 import org.broadleafcommerce.core.offer.domain.OfferCode;
+import org.broadleafcommerce.core.offer.service.exception.OfferException;
 import org.broadleafcommerce.core.offer.service.exception.OfferMaxUseExceededException;
+import org.broadleafcommerce.core.order.dao.OrderDao;
 import org.broadleafcommerce.core.order.domain.Order;
 import org.broadleafcommerce.core.order.domain.OrderItem;
 import org.broadleafcommerce.core.order.service.call.GiftWrapOrderItemRequest;
@@ -183,6 +185,18 @@ public interface OrderService {
     public Order save(Order order, Boolean priceOrder) throws PricingException;
     
     /**
+     * Saves the given <b>order</b> while optionally repricing the order (meaning, going through the pricing workflow)
+     * along with updating the prices of individual items in the order, as opposed to just pricing taxes/shipping/etc.
+     * 
+     * @param order
+     * @param priceOrder
+     * @param repriceItems whether or not to reprice the items inside of the order via {@link Order#updatePrices()}
+     * @return the persisted Order, which will be a different instance than the Order passed in
+     * @throws PricingException
+     */
+    public Order save(Order order, boolean priceOrder, boolean repriceItems) throws PricingException;
+    
+    /**
      * Deletes the given order. Note that the default Broadleaf implementation in 
      * OrderServiceImpl will actually remove the Order instance from the database.
      * 
@@ -191,7 +205,7 @@ public interface OrderService {
     public void cancelOrder(Order order);
     
     /**
-     * Adds the given OfferCode to the order. Optionally prices the order as well
+     * Adds the given OfferCode to the order. Optionally prices the order as well.
      * 
      * @param order
      * @param offerCode
@@ -199,9 +213,23 @@ public interface OrderService {
      * @return the modified Order
      * @throws PricingException
      * @throws OfferMaxUseExceededException
+     * @throws OfferException 
      */
-    public Order addOfferCode(Order order, OfferCode offerCode, boolean priceOrder) throws PricingException, OfferMaxUseExceededException;
+    public Order addOfferCode(Order order, OfferCode offerCode, boolean priceOrder) throws PricingException, OfferException;
     
+    /**
+     * Adds the given OfferCodes to the order. Optionally prices the order as well.
+     * 
+     * @param order
+     * @param offerCodes
+     * @param priceOrder
+     * @return
+     * @throws PricingException
+     * @throws OfferMaxUseExceededException
+     * @throws OfferException 
+     */
+    public Order addOfferCodes(Order order, List<OfferCode> offerCodes, boolean priceOrder) throws PricingException, OfferException;
+
     /**
      * Remove the given OfferCode for the order. Optionally prices the order as well.
      * 
@@ -524,6 +552,14 @@ public interface OrderService {
      * @param cart
      */
     public void preValidateCartOperation(Order cart);
+
+    /**
+     * Invokes the extension handler of the same name to provide the ability for a module to throw an exception
+     * and interrupt an update quantity operation.
+     * 
+     * @param cart
+     */
+    public void preValidateUpdateQuantityOperation(Order cart, OrderItemRequestDTO dto);
     
     /**
      * Detaches the given order from the current entity manager and then reloads a fresh version from
@@ -534,4 +570,18 @@ public interface OrderService {
      */
     public Order reloadOrder(Order order);
 
+
+    /**
+     * @see OrderDao#acquireLock(Order)
+     * @param order
+     * @return whether or not the lock was acquired
+     */
+    public boolean acquireLock(Order order);
+
+    /**
+     * @see OrderDao#releaseLock(Order)
+     * @param order
+     * @return whether or not the lock was released
+     */
+    public boolean releaseLock(Order order);
 }

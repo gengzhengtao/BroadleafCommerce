@@ -25,6 +25,7 @@ import org.broadleafcommerce.common.site.domain.CatalogImpl;
 import org.broadleafcommerce.common.site.domain.Site;
 import org.broadleafcommerce.common.site.domain.SiteImpl;
 import org.broadleafcommerce.common.site.service.type.SiteResolutionType;
+import org.broadleafcommerce.common.util.dao.TypedQueryBuilder;
 import org.hibernate.ejb.QueryHints;
 import org.springframework.stereotype.Repository;
 
@@ -99,7 +100,15 @@ public class SiteDaoImpl implements SiteDao {
         Root<SiteImpl> site = criteria.from(SiteImpl.class);
         criteria.select(site);
 
-        criteria.where(site.get("siteIdentifierValue").as(String.class).in(siteIdentifiers));
+        criteria.where(builder.and(site.get("siteIdentifierValue").as(String.class).in(siteIdentifiers),
+                builder.and(
+                    builder.or(builder.isNull(site.get("archiveStatus").get("archived").as(String.class)),
+                        builder.notEqual(site.get("archiveStatus").get("archived").as(Character.class), 'Y')),
+                    builder.or(builder.isNull(site.get("deactivated").as(Boolean.class)),
+                        builder.notEqual(site.get("deactivated").as(Boolean.class), true))
+                )
+            )
+        );
         TypedQuery<Site> query = em.createQuery(criteria);
         query.setHint(QueryHints.HINT_CACHEABLE, true);
 
@@ -117,9 +126,6 @@ public class SiteDaoImpl implements SiteDao {
                     return currentSite;
                 }
             }
-            
-            // We need to forcefully load this collection.
-            currentSite.getCatalogs().size();
         }
 
         return null;
@@ -139,4 +145,12 @@ public class SiteDaoImpl implements SiteDao {
     public Catalog save(Catalog catalog) {
         return em.merge(catalog);
     }
+    
+    @Override
+    public List<Catalog> retrieveAllCatalogs() {
+        TypedQuery<Catalog> q = new TypedQueryBuilder<Catalog>(Catalog.class, "c")
+                .toQuery(em);
+        return q.getResultList();
+    } 
+
 }

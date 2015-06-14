@@ -65,7 +65,7 @@ import javax.persistence.EntityListeners;
  * @author Andre Azzolini (apazzolini)
  * @author Jeff Fischer
  */
-public class DirectCopyClassTransformer implements BroadleafClassTransformer {
+public class DirectCopyClassTransformer extends AbstractClassTransformer implements BroadleafClassTransformer {
 
     protected static List<String> transformedMethods = new ArrayList<String>();
     protected static List<String> annotationTransformedClasses = new ArrayList<String>();
@@ -94,6 +94,12 @@ public class DirectCopyClassTransformer implements BroadleafClassTransformer {
     @Override
     public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
             ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
+
+        // Lambdas and anonymous methods in Java 8 do not have a class name defined and so no transformation should be done
+        if (className == null) {
+            return null;
+        }
+
         //Be careful with Apache library usage in this class (e.g. ArrayUtils). Usage will likely cause a ClassCircularityError
         //under JRebel. Favor not including outside libraries and unnecessary classes.
         CtClass clazz = null;
@@ -170,7 +176,8 @@ public class DirectCopyClassTransformer implements BroadleafClassTransformer {
                                                                 }
                                                             }
                                                         }
-                                                        templates.add(templateTokens.get(val));
+                                                        String[] templateVals = templateTokens.get(val).split(",");
+                                                        templates.addAll(Arrays.asList(templateVals));
                                                     }
                                                 }
                                             }
@@ -199,7 +206,7 @@ public class DirectCopyClassTransformer implements BroadleafClassTransformer {
                 }
             }
             if (xformVals != null && xformVals.length > 0) {
-                logger.lifecycle(LifeCycleEvent.START, String.format("Transform - Copying into [%s] from [%s]", xformKey,
+                logger.debug(String.format("[%s] - Transform - Copying into [%s] from [%s]", LifeCycleEvent.END, xformKey,
                         StringUtils.join(xformVals, ",")));
                 // Load the destination class and defrost it so it is eligible for modifications
                 clazz.defrost();
@@ -336,7 +343,7 @@ public class DirectCopyClassTransformer implements BroadleafClassTransformer {
                 if (xformTemplates.isEmpty()) {
                     annotationTransformedClasses.add(convertedClassName);
                 }
-                logger.lifecycle(LifeCycleEvent.END, String.format("Transform - Copying into [%s] from [%s]", xformKey,
+                logger.debug(String.format("[%s] - Transform - Copying into [%s] from [%s]", LifeCycleEvent.END, xformKey,
                                     StringUtils.join(xformVals, ",")));
                 return clazz.toBytecode();
             }

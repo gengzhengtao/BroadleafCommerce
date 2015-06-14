@@ -25,9 +25,13 @@ import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedOperationParameter;
 import org.springframework.jmx.export.annotation.ManagedOperationParameters;
 import org.springframework.jmx.export.annotation.ManagedResource;
-import org.springframework.stereotype.Component;
 
-@Component
+/**
+ * This is not hooked up by default so that log4j is not required. If you are using Log4j, you can add this class to your
+ * Spring applicationContext to enable it.
+ * 
+ * @author Phillip Verheyden (phillipuniverse)
+ */
 @ManagedResource(objectName="org.broadleafcommerce:name=Log4JManangement", description="Logging Management", currencyTimeLimit=15)
 public class Log4jManagementBean {
 
@@ -66,4 +70,5 @@ public class Log4jManagementBean {
     public String getLevel(String category) {
         return LogManager.getLogger(category).getLevel().toString();
     }
+
 }

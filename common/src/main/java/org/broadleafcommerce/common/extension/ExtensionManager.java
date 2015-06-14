@@ -79,11 +79,9 @@ public abstract class ExtensionManager<T extends ExtensionHandler> implements In
     public List<T> getHandlers() {
         synchronized (LOCK_OBJECT) {
             if (!handlersSorted) {
-                if (!handlersSorted) {
-                    Comparator fieldCompare = new BeanComparator("priority");
-                    Collections.sort(handlers, fieldCompare);
-                    handlersSorted = true;
-                }
+                Comparator fieldCompare = new BeanComparator("priority");
+                Collections.sort(handlers, fieldCompare);
+                handlersSorted = true;
             }
             return handlers;
         }
@@ -167,12 +165,14 @@ public abstract class ExtensionManager<T extends ExtensionHandler> implements In
         boolean notHandled = true;
         for (ExtensionHandler handler : getHandlers()) {
             try {
-                ExtensionResultStatusType result = (ExtensionResultStatusType) method.invoke(handler, args);
-                if (!ExtensionResultStatusType.NOT_HANDLED.equals(result)) {
-                    notHandled = false;
-                }
-                if (!shouldContinue(result, handler, method, args)) {
-                    break;
+                if (handler.isEnabled()) {
+                    ExtensionResultStatusType result = (ExtensionResultStatusType) method.invoke(handler, args);
+                    if (!ExtensionResultStatusType.NOT_HANDLED.equals(result)) {
+                        notHandled = false;
+                    }
+                    if (!shouldContinue(result, handler, method, args)) {
+                        break;
+                    }
                 }
             } catch (InvocationTargetException e) {
                 throw e.getCause();

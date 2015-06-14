@@ -64,7 +64,7 @@ public class SystemPropertiesServiceImpl implements SystemPropertiesService{
     @Override
     public String resolveSystemProperty(String name, String defaultValue) {
         String result = resolveSystemProperty(name);
-        if (result == null) {
+        if (StringUtils.isBlank(result)) {
             return defaultValue;
         }
         return result;
@@ -191,7 +191,7 @@ public class SystemPropertiesServiceImpl implements SystemPropertiesService{
     
     @Override
     public int resolveIntSystemProperty(String name, int defaultValue) {
-        String systemProperty = resolveSystemProperty(name, Integer.toString(0));
+        String systemProperty = resolveSystemProperty(name, Integer.toString(defaultValue));
         return Integer.valueOf(systemProperty).intValue();
     }
 
@@ -221,6 +221,10 @@ public class SystemPropertiesServiceImpl implements SystemPropertiesService{
     
     @Override
     public boolean isValueValidForType(String value, SystemPropertyFieldType type) {
+        if (value == null) {
+            return true;
+        }
+
         if (type.equals(SystemPropertyFieldType.BOOLEAN_TYPE)) {
             value = value.toUpperCase();
             if (value != null && (value.equals("TRUE") || value.equals("FALSE"))) {

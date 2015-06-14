@@ -19,6 +19,9 @@
  */
 package org.broadleafcommerce.core.catalog.domain;
 
+import org.broadleafcommerce.common.i18n.service.DynamicTranslationProvider;
+import org.broadleafcommerce.common.copy.CreateResponse;
+import org.broadleafcommerce.common.copy.MultiTenantCopyContext;
 import org.broadleafcommerce.common.extensibility.jpa.copy.DirectCopyTransform;
 import org.broadleafcommerce.common.extensibility.jpa.copy.DirectCopyTransformMember;
 import org.broadleafcommerce.common.extensibility.jpa.copy.DirectCopyTransformTypes;
@@ -31,6 +34,7 @@ import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Index;
 import org.hibernate.annotations.Parameter;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -52,7 +56,8 @@ import javax.persistence.Table;
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE, region="blCategories")
 @AdminPresentationClass(friendlyName = "baseCategoryAttribute")
 @DirectCopyTransform({
-        @DirectCopyTransformMember(templateTokens = DirectCopyTransformTypes.SANDBOX, skipOverlaps = true)
+        @DirectCopyTransformMember(templateTokens = DirectCopyTransformTypes.SANDBOX, skipOverlaps = true),
+        @DirectCopyTransformMember(templateTokens = DirectCopyTransformTypes.MULTITENANT_CATALOG)
 })
 public class CategoryAttributeImpl implements CategoryAttribute {
 
@@ -84,7 +89,7 @@ public class CategoryAttributeImpl implements CategoryAttribute {
     @AdminPresentation(excluded = true)
     protected Boolean searchable = false;
     
-    @ManyToOne(targetEntity = CategoryImpl.class, optional=false)
+    @ManyToOne(targetEntity = CategoryImpl.class, optional=false, cascade = CascadeType.REFRESH)
     @JoinColumn(name = "CATEGORY_ID")
     @Index(name="CATEGORYATTRIBUTE_INDEX", columnNames={"CATEGORY_ID"})
     protected Category category;
@@ -101,7 +106,7 @@ public class CategoryAttributeImpl implements CategoryAttribute {
 
     @Override
     public String getValue() {
-        return value;
+        return DynamicTranslationProvider.getValue(this, "value", value);
     }
 
     @Override
@@ -125,7 +130,7 @@ public class CategoryAttributeImpl implements CategoryAttribute {
 
     @Override
     public String getName() {
-        return name;
+        return DynamicTranslationProvider.getValue(this, "name", name);
     }
 
     @Override
@@ -190,4 +195,19 @@ public class CategoryAttributeImpl implements CategoryAttribute {
         return true;
     }
 
+    @Override
+    public <G extends CategoryAttribute> CreateResponse<G> createOrRetrieveCopyInstance(MultiTenantCopyContext context) throws CloneNotSupportedException {
+        CreateResponse<G> createResponse = context.createOrRetrieveCopyInstance(this);
+        if (createResponse.isAlreadyPopulated()) {
+            return createResponse;
+        }
+        CategoryAttribute cloned = createResponse.getClone();
+        if (category != null) {
+            cloned.setCategory(category.createOrRetrieveCopyInstance(context).getClone());
+        }
+        cloned.setName(name);
+        cloned.setValue(value);
+        cloned.setSearchable(searchable);
+        return  createResponse;
+    }
 }
